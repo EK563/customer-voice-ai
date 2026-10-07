@@ -9,6 +9,10 @@ import {
   parseTrustpilotEvidence,
 } from './providers/trustpilot.js';
 
+import {
+  searchTavily,
+} from './providers/tavily.js';
+
 const limit = Number(
   (
     process.argv.find((a) => a.startsWith('--limit=')) ||
@@ -26,10 +30,17 @@ const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SECRET_KEY;
 const braveKey = process.env.BRAVE_SEARCH_API_KEY;
+const tavilyKey = process.env.TAVILY_API_KEY;
 
-if (!supabaseUrl || !supabaseKey || !braveKey) {
+if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY), and BRAVE_SEARCH_API_KEY'
+    'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY)'
+  );
+}
+
+if (!tavilyKey && !braveKey) {
+  throw new Error(
+    'Set at least one search provider: TAVILY_API_KEY or BRAVE_SEARCH_API_KEY'
   );
 }
 
@@ -321,6 +332,7 @@ function identityMatch(result, prospect) {
 function extractDate(result) {
   const candidates = [
     result?.deep_results?.review?.datePublished,
+    result?.published_date,
     result?.deep_results?.review?.dateCreated,
     result?.deep_results?.review?.datePosted,
     result?.deep_results?.article?.datePublished,
@@ -341,11 +353,16 @@ function extractDate(result) {
         result?.deep_results?.article?.datePublished ||
         result?.deep_results?.article?.dateCreated;
 
+      const publishedDate =
+        result?.published_date;
+
       return {
         date: d.toISOString().slice(0, 10),
         source: structured
           ? 'structured'
-          : 'page_age',
+          : publishedDate
+            ? 'published_date'
+            : 'page_age',
         confidence: structured
           ? 'high'
           : 'low',
@@ -371,6 +388,7 @@ function extractDate(result) {
       return {
         date: d.toISOString().slice(0, 10),
         source: 'text',
+        confidence: 'medium',
       };
     }
   }
@@ -388,6 +406,7 @@ function extractDate(result) {
       return {
         date: d.toISOString().slice(0, 10),
         source: 'text',
+        confidence: 'medium',
       };
     }
   }
@@ -395,8 +414,8 @@ function extractDate(result) {
   return null;
 }
 
-function classifyRecency(dateValue) {
-  if (!dateValue) {
+function classifyRecency(dateInfo) {
+  if (!dateInfo?.date) {
     return {
       usable: false,
       recencyClass: 'undated',
@@ -404,7 +423,27 @@ function classifyRecency(dateValue) {
     };
   }
 
-  const date = new Date(`${dateValue}T00:00:00Z`);
+  // Search-result freshness is not the same as the date
+  // of the underlying customer review. Do not allow
+  // page_age or generic published_date to trigger
+  // automatic current_pain / diagnosis.
+  if (
+    dateInfo.confidence === 'low' &&
+    (
+      dateInfo.source === 'page_age' ||
+      dateInfo.source === 'published_date'
+    )
+  ) {
+    return {
+      usable: false,
+      recencyClass: 'date_not_verified',
+      ageDays: null,
+    };
+  }
+
+  const date = new Date(
+    `${dateInfo.date}T00:00:00Z`
+  );
   const today = new Date();
 
   const todayUtc = Date.UTC(
@@ -572,6 +611,44 @@ async function brave(query, freshness = null) {
     : [];
 }
 
+async function searchWeb(query, freshness = null) {
+  if (tavilyKey) {
+    try {
+      const results = await searchTavily(query, {
+        apiKey: tavilyKey,
+        maxResults: 10,
+      });
+
+      return {
+        provider: 'tavily',
+        results,
+      };
+    } catch (error) {
+      console.error(
+        `Tavily failed: ${error.message}`
+      );
+
+      if (!braveKey) {
+        throw error;
+      }
+    }
+  }
+
+  if (braveKey) {
+    return {
+      provider: 'brave',
+      results: await brave(
+        query,
+        freshness
+      ),
+    };
+  }
+
+  throw new Error(
+    'No search provider available'
+  );
+}
+
 function dateRange(daysAgoStart, daysAgoEnd) {
   const now = new Date();
 
@@ -659,14 +736,23 @@ async function main() {
       for (const query of queries) {
         let results = [];
 
+        let provider = null;
+
         try {
-          results = await brave(
-            query,
-            freshness
-          );
+          const searched =
+            await searchWeb(
+              query,
+              freshness
+            );
+
+          provider =
+            searched.provider;
+
+          results =
+            searched.results;
         } catch (error) {
           console.error(
-            `Brave failed for ${merchantDomain}: ${error.message}`
+            `Search failed for ${merchantDomain}: ${error.message}`
           );
           continue;
         }
@@ -675,8 +761,9 @@ async function main() {
 
         if (DEBUG) {
           console.log(JSON.stringify({
-            debug: 'brave_results',
+            debug: 'search_results',
             merchantDomain,
+            provider,
             researchClass,
             freshness,
             query,
@@ -686,6 +773,8 @@ async function main() {
               title: r?.title || '',
               description: (r?.description || '').slice(0, 300),
               page_age: r?.page_age || null,
+              published_date:
+                r?.published_date || null,
               deep_results: r?.deep_results
                 ? Object.keys(r.deep_results)
                 : [],
@@ -792,9 +881,7 @@ async function main() {
             extractDate(result);
 
           const recency =
-            classifyRecency(
-              dateInfo?.date || null
-            );
+            classifyRecency(dateInfo);
 
           if (!recency.usable) {
             continue;
@@ -834,6 +921,8 @@ async function main() {
             recency,
             category,
             researchClass,
+            searchProvider:
+              provider || null,
             provider:
               trustpilotEvidence?.provider ||
               null,
@@ -1039,15 +1128,19 @@ async function main() {
               ),
             metadata: {
               evidenceVersion:
-                'v5',
+                'v5.5',
               source:
-                'brave_search_v5',
+                item.searchProvider === 'tavily'
+                  ? 'tavily_v1'
+                  : 'brave_search_v5',
               sourceHost:
                 item.host,
+              searchProvider:
+                item.searchProvider || null,
               provider:
                 item.host === 'trustpilot.com'
                   ? 'trustpilot'
-                  : 'brave',
+                  : item.searchProvider || 'unknown',
               providerCategories:
                 item.providerCategories || [],
               thirdParty: true,
@@ -1112,8 +1205,8 @@ async function main() {
       evidenceResearch: {
         researchedAt:
           new Date().toISOString(),
-        evidenceVersion: 'v5.4',
-        source: 'evidence_providers_v5.4',
+        evidenceVersion: 'v5.5',
+        source: 'evidence_providers_v5.5',
         currentWindowDays:
           CURRENT_DAYS,
         historicalWindowDays:
@@ -1164,7 +1257,7 @@ async function main() {
         recurrenceSignals,
         queriesRun,
         candidates,
-        evidenceVersion: 'v5.4',
+        evidenceVersion: 'v5.5',
       },
       null,
       2
