@@ -329,9 +329,21 @@ function extractDate(result) {
     const d = new Date(value);
 
     if (!Number.isNaN(d.getTime())) {
+      const structured =
+        result?.deep_results?.review?.datePublished ||
+        result?.deep_results?.review?.dateCreated ||
+        result?.deep_results?.review?.datePosted ||
+        result?.deep_results?.article?.datePublished ||
+        result?.deep_results?.article?.dateCreated;
+
       return {
         date: d.toISOString().slice(0, 10),
-        source: 'structured_or_page_age',
+        source: structured
+          ? 'structured'
+          : 'page_age',
+        confidence: structured
+          ? 'high'
+          : 'low',
       };
     }
   }
@@ -612,32 +624,23 @@ async function main() {
 
     const brand = brandFromProspect(prospect);
 
-    const currentQueries = [
-      ...REVIEW_QUERIES(
-        brand,
-        merchantDomain
-      ),
-      ...TRUSTPILOT_PAIN_QUERIES(
-        merchantDomain
-      ),
-      `site:trustpilot.com "${merchantDomain}"`,
-      `site:trustpilot.com "${brand}"`,
-      `site:reddit.com "${merchantDomain}" review`,
-      `site:reddit.com "${merchantDomain}" complaint`,
-      `site:bbb.org "${merchantDomain}"`,
-      `site:sitejabber.com "${merchantDomain}"`,
-      `site:yelp.com "${merchantDomain}"`,
+    const currentScreenQueries = [
+      `site:trustpilot.com/review/${merchantDomain} poor`,
+      `site:trustpilot.com/review/${merchantDomain} refund`,
+      `site:trustpilot.com/review/${merchantDomain} problem`,
+    ];
+
+    const currentDeepQueries = [
+      `site:trustpilot.com/review/${merchantDomain} missing`,
+      `site:trustpilot.com/review/${merchantDomain} delay`,
+      `site:trustpilot.com/review/${merchantDomain} damaged`,
     ];
 
     const historicalQueries = [
       ...HISTORICAL_REVIEW_QUERIES(
         brand,
         merchantDomain
-      ),
-      `site:trustpilot.com "${merchantDomain}"`,
-      `site:reddit.com "${merchantDomain}" complaint`,
-      `site:bbb.org "${merchantDomain}"`,
-      `site:sitejabber.com "${merchantDomain}"`,
+      ).slice(0, 3),
     ];
 
     const found = [];
@@ -815,17 +818,44 @@ async function main() {
         HISTORICAL_DAYS
       );
 
+    // Stage 1: cheap screening.
     await runQueries(
-      currentQueries,
+      currentScreenQueries,
       currentFreshness,
-      'current_search'
+      'current_screen'
     );
 
-    await runQueries(
-      historicalQueries,
-      historicalFreshness,
-      'historical_search'
+    // Stage 2: only spend additional requests when
+    // the screening stage found usable third-party pain.
+    const screeningCandidates = found.filter(
+      (item) =>
+        item.recency.painType ===
+        'current_pain'
     );
+
+    if (screeningCandidates.length) {
+      await runQueries(
+        currentDeepQueries,
+        currentFreshness,
+        'current_deep'
+      );
+    }
+
+    // Historical research is only worthwhile when
+    // current evidence has already produced a signal.
+    const currentCandidates = found.filter(
+      (item) =>
+        item.recency.painType ===
+        'current_pain'
+    );
+
+    if (currentCandidates.length) {
+      await runQueries(
+        historicalQueries,
+        historicalFreshness,
+        'historical_search'
+      );
+    }
 
     const deduped = [];
     const fingerprints = new Set();
@@ -993,6 +1023,9 @@ async function main() {
               evidenceDateSource:
                 item.dateInfo?.source ||
                 null,
+              evidenceDateConfidence:
+                item.dateInfo?.confidence ||
+                'low',
               ageDays:
                 item.recency.ageDays,
               recencyClass:
@@ -1035,8 +1068,8 @@ async function main() {
       evidenceResearch: {
         researchedAt:
           new Date().toISOString(),
-        evidenceVersion: 'v5',
-        source: 'brave_search_v5',
+        evidenceVersion: 'v5.3',
+        source: 'brave_search_v5.3',
         currentWindowDays:
           CURRENT_DAYS,
         historicalWindowDays:
@@ -1087,7 +1120,7 @@ async function main() {
         recurrenceSignals,
         queriesRun,
         candidates,
-        evidenceVersion: 'v5',
+        evidenceVersion: 'v5.3',
       },
       null,
       2
