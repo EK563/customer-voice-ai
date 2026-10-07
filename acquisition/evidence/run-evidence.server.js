@@ -25,6 +25,18 @@ const HISTORICAL_DAYS = 365;
 
 const DEBUG = process.argv.includes('--debug');
 
+const targetDomain = String(
+  (
+    process.argv.find((a) =>
+      a.startsWith('--domain=')
+    ) || ''
+  ).split('=')[1] || ''
+)
+  .trim()
+  .toLowerCase();
+
+const RESEARCH_COOLDOWN_DAYS = 7;
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -674,8 +686,12 @@ async function main() {
     100
   );
 
+  const domainFilter = targetDomain
+    ? `&domain=eq.${encodeURIComponent(targetDomain)}`
+    : '';
+
   const prospects = await sb(
-    `prospects?select=*&status=in.(qualified,priority)&order=qualification_score.desc&limit=${candidateLimit}`
+    `prospects?select=*&status=in.(qualified,priority)&order=qualification_score.desc&limit=${candidateLimit}${domainFilter}`
   );
 
   let researched = 0;
@@ -694,13 +710,30 @@ async function main() {
       prospect.domain
     );
 
-    const existing = await sb(
-      `prospect_signals?select=id&prospect_id=eq.${encodeURIComponent(
-        prospect.id
-      )}&signal_type=eq.customer_pain&limit=1`
-    );
+    const researchedAt =
+      prospect?.metadata?.evidenceResearch?.researchedAt;
 
-    if (existing?.length) {
+    const researchedTime =
+      researchedAt
+        ? new Date(researchedAt).getTime()
+        : NaN;
+
+    const cooldownMs =
+      RESEARCH_COOLDOWN_DAYS *
+      24 *
+      60 *
+      60 *
+      1000;
+
+    const recentlyResearched =
+      Number.isFinite(researchedTime) &&
+      Date.now() - researchedTime <
+        cooldownMs;
+
+    if (
+      recentlyResearched &&
+      !targetDomain
+    ) {
       continue;
     }
 
