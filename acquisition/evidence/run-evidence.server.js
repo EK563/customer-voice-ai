@@ -13,6 +13,8 @@ const limit = Number(
 const CURRENT_DAYS = 90;
 const HISTORICAL_DAYS = 365;
 
+const DEBUG = process.argv.includes('--debug');
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -645,6 +647,26 @@ async function main() {
 
         queriesRun++;
 
+        if (DEBUG) {
+          console.log(JSON.stringify({
+            debug: 'brave_results',
+            merchantDomain,
+            researchClass,
+            freshness,
+            query,
+            resultCount: results.length,
+            results: results.slice(0, 10).map((r) => ({
+              url: r?.url || null,
+              title: r?.title || '',
+              description: (r?.description || '').slice(0, 300),
+              page_age: r?.page_age || null,
+              deep_results: r?.deep_results
+                ? Object.keys(r.deep_results)
+                : [],
+            })),
+          }, null, 2));
+        }
+
         for (const result of results) {
           if (!result?.url) continue;
 
@@ -727,6 +749,23 @@ async function main() {
 
           const category =
             painCategory(text);
+
+          if (DEBUG) {
+            console.log(JSON.stringify({
+              debug: 'accepted_evidence',
+              merchantDomain,
+              researchClass,
+              url: result.url,
+              title: result.title || '',
+              host,
+              identity,
+              negative,
+              customerContext,
+              dateInfo,
+              recency,
+              category,
+            }, null, 2));
+          }
 
           found.push({
             url: result.url,
@@ -956,6 +995,21 @@ async function main() {
           }),
         }
       );
+    }
+
+    if (DEBUG) {
+      console.log(JSON.stringify({
+        debug: 'evidence_summary',
+        merchantDomain,
+        brand,
+        found: found.length,
+        deduped: deduped.length,
+        current: current.length,
+        historical: historical.length,
+        recurrenceCategories,
+        currentFreshness,
+        historicalFreshness,
+      }, null, 2));
     }
 
     const metadata = {
