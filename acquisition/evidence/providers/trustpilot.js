@@ -1,44 +1,93 @@
+const TRUSTPILOT_HOSTS = [
+  'trustpilot.com',
+  'www.trustpilot.com',
+];
+
+export function isTrustpilotResult(url) {
+  try {
+    const parsed = new URL(url);
+
+    return TRUSTPILOT_HOSTS.includes(
+      parsed.hostname.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function parseTrustpilotEvidence({
   url,
   title = '',
   description = '',
+  pageAge = null,
+  query = '',
 }) {
-  const text = `${title} ${description}`.toLowerCase();
+  if (!isTrustpilotResult(url)) {
+    return null;
+  }
+
+  const text = `${title} ${description}`
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) {
+    return null;
+  }
+
+  const lower = text.toLowerCase();
 
   const categories = [];
 
   if (
-    text.includes('poor') ||
-    text.includes('bad') ||
-    text.includes('disappointed')
+    /poor|bad service|poor service|disappointed|wouldn['’]?t recommend|would not recommend/.test(
+      lower
+    )
   ) {
     categories.push('service_failure');
   }
 
   if (
-    text.includes('refund') ||
-    text.includes('missing')
+    /refund|missing|never received|never arrived|did not receive|didn['’]?t receive/.test(
+      lower
+    )
   ) {
     categories.push('refund_issue');
   }
 
   if (
-    text.includes('delivery') ||
-    text.includes('shipping') ||
-    text.includes('delay')
+    /delivery|shipping|delay|late/.test(lower)
   ) {
     categories.push('delivery_issue');
   }
 
-  if (text.includes('damaged')) {
+  if (
+    /damaged|broken|arrived damaged/.test(lower)
+  ) {
     categories.push('damage_issue');
+  }
+
+  if (
+    /quality|poor quality|bad quality/.test(lower)
+  ) {
+    categories.push('quality_issue');
+  }
+
+  if (!categories.length) {
+    return null;
   }
 
   return {
     provider: 'trustpilot',
     url,
+    title,
+    description,
+    query,
+    pageAge,
     categories,
-    text: description,
-    confidence: categories.length > 0 ? 'medium' : 'low',
+    text,
+    confidence:
+      categories.length >= 2
+        ? 'high'
+        : 'medium',
   };
 }
