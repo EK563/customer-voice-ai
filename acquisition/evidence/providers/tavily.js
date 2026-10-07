@@ -18,6 +18,52 @@ function cleanQuery(query) {
     .trim();
 }
 
+function normalizeHostname(url) {
+  try {
+    return new URL(url)
+      .hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function isAllowedResult(url, domain) {
+  if (!url) {
+    return false;
+  }
+
+  if (!domain) {
+    return true;
+  }
+
+  const hostname = normalizeHostname(url);
+
+  // Trustpilot site constraint:
+  // only accept Trustpilot review pages for the
+  // exact requested merchant domain.
+  if (hostname !== 'trustpilot.com') {
+    return false;
+  }
+
+  try {
+    const pathname = new URL(url)
+      .pathname
+      .toLowerCase();
+
+    const expectedPath =
+      `/review/${domain}`.toLowerCase();
+
+    return (
+      pathname === expectedPath ||
+      pathname.startsWith(`${expectedPath}/`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function searchTavily(
   query,
   {
@@ -70,17 +116,23 @@ export async function searchTavily(
 
   const data = JSON.parse(body);
 
-  return Array.isArray(data.results)
-    ? data.results.map((item) => ({
-        url: item.url || '',
-        title: item.title || '',
-        description: item.content || '',
-        published_date:
-          item.published_date || null,
-        score:
-          typeof item.score === 'number'
-            ? item.score
-            : null,
-      }))
-    : [];
+  if (!Array.isArray(data.results)) {
+    return [];
+  }
+
+  return data.results
+    .filter((item) =>
+      isAllowedResult(item?.url || '', domain)
+    )
+    .map((item) => ({
+      url: item.url || '',
+      title: item.title || '',
+      description: item.content || '',
+      published_date:
+        item.published_date || null,
+      score:
+        typeof item.score === 'number'
+          ? item.score
+          : null,
+    }));
 }
