@@ -1,3 +1,21 @@
+export function TRUSTPILOT_PAIN_QUERIES(domain) {
+  const d = String(domain || '').replace(/"/g, '');
+
+  return [
+    `site:trustpilot.com/review/${d} poor`,
+    `site:trustpilot.com/review/${d} complaint`,
+    `site:trustpilot.com/review/${d} refund`,
+    `site:trustpilot.com/review/${d} delivery`,
+    `site:trustpilot.com/review/${d} shipping`,
+    `site:trustpilot.com/review/${d} damaged`,
+    `site:trustpilot.com/review/${d} missing`,
+    `site:trustpilot.com/review/${d} delay`,
+    `site:trustpilot.com/review/${d} "not received"`,
+    `site:trustpilot.com/review/${d} disappointed`,
+    `site:trustpilot.com/review/${d} problem`,
+  ];
+}
+
 export function REVIEW_QUERIES(brand, domain) {
   const b = `"${String(brand || domain).replace(/"/g, '')}"`;
 

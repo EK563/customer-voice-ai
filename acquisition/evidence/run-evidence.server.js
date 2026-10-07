@@ -1,6 +1,7 @@
 import {
   REVIEW_QUERIES,
   HISTORICAL_REVIEW_QUERIES,
+  TRUSTPILOT_PAIN_QUERIES,
 } from './queries.js';
 
 const limit = Number(
@@ -614,6 +615,9 @@ async function main() {
     const currentQueries = [
       ...REVIEW_QUERIES(
         brand,
+        merchantDomain
+      ),
+      ...TRUSTPILOT_PAIN_QUERIES(
         merchantDomain
       ),
       `site:trustpilot.com "${merchantDomain}"`,
