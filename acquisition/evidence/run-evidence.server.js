@@ -611,16 +611,30 @@ async function main() {
 
     const brand = brandFromProspect(prospect);
 
-    const currentQueries = REVIEW_QUERIES(
-      brand,
-      merchantDomain
-    );
-
-    const historicalQueries =
-      HISTORICAL_REVIEW_QUERIES(
+    const currentQueries = [
+      ...REVIEW_QUERIES(
         brand,
         merchantDomain
-      );
+      ),
+      `site:trustpilot.com "${merchantDomain}"`,
+      `site:trustpilot.com "${brand}"`,
+      `site:reddit.com "${merchantDomain}" review`,
+      `site:reddit.com "${merchantDomain}" complaint`,
+      `site:bbb.org "${merchantDomain}"`,
+      `site:sitejabber.com "${merchantDomain}"`,
+      `site:yelp.com "${merchantDomain}"`,
+    ];
+
+    const historicalQueries = [
+      ...HISTORICAL_REVIEW_QUERIES(
+        brand,
+        merchantDomain
+      ),
+      `site:trustpilot.com "${merchantDomain}"`,
+      `site:reddit.com "${merchantDomain}" complaint`,
+      `site:bbb.org "${merchantDomain}"`,
+      `site:sitejabber.com "${merchantDomain}"`,
+    ];
 
     const found = [];
     const seen = new Set();
@@ -793,8 +807,8 @@ async function main() {
 
     const historicalFreshness =
       dateRange(
-        HISTORICAL_DAYS,
-        CURRENT_DAYS + 1
+        CURRENT_DAYS + 1,
+        HISTORICAL_DAYS
       );
 
     await runQueries(
