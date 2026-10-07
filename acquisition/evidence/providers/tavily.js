@@ -1,21 +1,11 @@
 const TAVILY_URL = 'https://api.tavily.com/search';
 
-function extractDomainConstraint(query) {
+function extractSiteConstraint(query) {
   const match = String(query || '').match(
     /\bsite:([a-z0-9.-]+\.[a-z]{2,})\b/i
   );
 
   return match ? match[1].toLowerCase() : null;
-}
-
-function cleanQuery(query) {
-  return String(query || '')
-    .replace(
-      /\bsite:[a-z0-9.-]+\.[a-z]{2,}\b/gi,
-      ''
-    )
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function normalizeHostname(url) {
@@ -29,39 +19,25 @@ function normalizeHostname(url) {
   }
 }
 
-function isAllowedResult(url, domain) {
+function isAllowedResult(url, siteConstraint) {
   if (!url) {
     return false;
   }
 
-  if (!domain) {
+  if (!siteConstraint) {
     return true;
   }
 
   const hostname = normalizeHostname(url);
 
-  // Trustpilot site constraint:
-  // only accept Trustpilot review pages for the
-  // exact requested merchant domain.
-  if (hostname !== 'trustpilot.com') {
-    return false;
+  // Trustpilot special case:
+  // site:trustpilot.com/review/xxx
+  // Tavily may return regional Trustpilot domains.
+  if (siteConstraint.includes('trustpilot.com')) {
+    return hostname.endsWith('trustpilot.com');
   }
 
-  try {
-    const pathname = new URL(url)
-      .pathname
-      .toLowerCase();
-
-    const expectedPath =
-      `/review/${domain}`.toLowerCase();
-
-    return (
-      pathname === expectedPath ||
-      pathname.startsWith(`${expectedPath}/`)
-    );
-  } catch {
-    return false;
-  }
+  return hostname === siteConstraint;
 }
 
 export async function searchTavily(
@@ -77,30 +53,29 @@ export async function searchTavily(
     );
   }
 
-  const domain =
-    extractDomainConstraint(query);
+  const siteConstraint =
+    extractSiteConstraint(query);
 
   const payload = {
     api_key: apiKey,
-    query: query,
-    search_depth: 'basic',
+    query,
+    search_depth: 'advanced',
     topic: 'general',
     max_results: maxResults,
     include_answer: false,
     include_raw_content: false,
   };
 
-  if (domain) {
-    payload.include_domains = [domain];
-  }
-
-  const res = await fetch(TAVILY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  const res = await fetch(
+    TAVILY_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
   const body = await res.text();
 
@@ -122,7 +97,10 @@ export async function searchTavily(
 
   return data.results
     .filter((item) =>
-      isAllowedResult(item?.url || '', domain)
+      isAllowedResult(
+        item?.url || '',
+        siteConstraint
+      )
     )
     .map((item) => ({
       url: item.url || '',
