@@ -1,99 +1,19 @@
 import { DISCOVERY_QUERIES } from './queries.js';
-import { braveSearch } from './brave-provider.server.js';
+import { searchBrave } from './brave-provider.server.js';
 import { inspectSite } from './site-inspector.server.js';
 
-const limitArg = Number(process.argv.find((x) => x.startsWith('--limit='))?.split('=')[1] || 20);
-const limit = Math.max(1, Math.min(limitArg, 300));
-const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+const limit = Number((process.argv.find(a => a.startsWith('--limit=')) || '--limit=100').split('=')[1]);
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-
-if (!apiKey) throw new Error('Set BRAVE_SEARCH_API_KEY');
-if (!supabaseUrl || !supabaseKey) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY)');
-
-async function supabase(path, options = {}) {
-  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal',
-      ...(options.headers || {}),
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!response.ok) throw new Error(`Supabase ${response.status}: ${await response.text()}`);
-  return response;
-}
-
-const candidates = new Map();
-for (const query of DISCOVERY_QUERIES) {
-  if (candidates.size >= limit * 2) break;
-  const results = await braveSearch({ apiKey, query, count: 20 });
-  for (const result of results) {
-    try {
-      const host = new URL(result.url).hostname.toLowerCase().replace(/^www\./, '');
-      if (!host || candidates.has(host)) continue;
-      if (/\.(pdf|jpg|jpeg|png|gif|webp|zip)$/i.test(new URL(result.url).pathname)) continue;
-      candidates.set(host, { domain: host, sourceUrl: result.url, query });
-    } catch {}
-  }
-}
-
-const domains = [...candidates.values()].slice(0, limit);
-console.log(`Discovered ${domains.length} unique candidate domains.`);
-
-let verified = 0;
-let priority = 0;
-for (const candidate of domains) {
-  const site = await inspectSite(candidate.sourceUrl);
-  if (!site?.reachable) continue;
-  if (site.platform !== 'shopify' || site.platformConfidence < 50) continue;
-  verified++;
-
-  const status = site.qualificationScore >= 70 ? 'priority' : site.qualificationScore >= 45 ? 'qualified' : 'discovered';
-  if (status === 'priority') priority++;
-
-  const prospectPayload = {
-    domain: site.domain,
-    store_name: site.storeName,
-    platform: site.platform,
-    platform_confidence: site.platformConfidence,
-    review_signal: site.reviewSignal,
-    review_platform: site.reviewPlatform,
-    feedback_signal: site.feedbackSignal,
-    commerce_signal: site.commerceSignal,
-    discovery_source: 'brave_search',
-    source_url: candidate.sourceUrl,
-    qualification_score: site.qualificationScore,
-    status,
-    metadata: { evidence: site.evidence },
-  };
-
-  const saved = await fetch(`${supabaseUrl}/rest/v1/prospects?on_conflict=domain`, {
-    method: 'POST',
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=representation',
-    },
-    body: JSON.stringify(prospectPayload),
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!saved.ok) throw new Error(`Supabase prospect ${saved.status}: ${await saved.text()}`);
-  const [prospect] = await saved.json();
-
-  await supabase('prospect_sources', {
-    method: 'POST',
-    body: JSON.stringify({
-      prospect_id: prospect.id,
-      source_type: 'search',
-      source_url: candidate.sourceUrl,
-      query: candidate.query,
-    }),
-  });
-}
-
-console.log(JSON.stringify({ discovered: domains.length, verifiedShopify: verified, priority }, null, 2));
+const braveKey = process.env.BRAVE_SEARCH_API_KEY;
+if (!supabaseUrl || !supabaseKey || !braveKey) throw new Error('Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY), and BRAVE_SEARCH_API_KEY');
+async function sb(path, options={}) { const res=await fetch(`${supabaseUrl}/rest/v1/${path}`,{...options,headers:{apikey:supabaseKey,Authorization:`Bearer ${supabaseKey}`,'Content-Type':'application/json',...(options.headers||{})}}); if(!res.ok) throw new Error(`${res.status} ${await res.text()}`); if(res.status===204)return null; const body=await res.text(); return body?JSON.parse(body):null; }
+function hostOf(v){try{return new URL(v).hostname.toLowerCase().replace(/^www\./,'')}catch{return ''}}
+function normalize(v){return hostOf(v).replace(/^shop\./,'')}
+function bad(title='',url=''){const t=title.toLowerCase();let p='';try{p=new URL(url).pathname.toLowerCase()}catch{} return ['shopify app store','shopify apps','app directory','help center','documentation','developer','currency converter','translate your store','support center'].some(x=>t.includes(x))||['/apps/','/help/','/docs/','/documentation/','/developers/','/directory/'].some(x=>p.startsWith(x));}
+const candidates=new Map();
+for(const query of DISCOVERY_QUERIES){let results=[];try{results=await searchBrave(query,braveKey,{count:10})}catch(e){console.warn(`Discovery query failed: ${query}: ${e.message}`);continue} for(const r of results){const domain=normalize(r.url);if(!domain||bad(r.title,r.url)||domain==='shopify.com'||domain.endsWith('.shopify.com')||domain==='myshopify.com'||domain.endsWith('.myshopify.com'))continue;const c=candidates.get(domain)||{domain,urls:new Set(),titles:new Set(),queryHits:0};c.urls.add(r.url);if(r.title)c.titles.add(r.title);c.queryHits++;candidates.set(domain,c);if(candidates.size>=Math.max(limit*2,100))break}if(candidates.size>=Math.max(limit*2,100))break}
+const selected=[...candidates.values()].sort((a,b)=>b.queryHits-a.queryHits).slice(0,Math.max(1,Math.min(limit,300)));
+let verifiedShopify=0,priority=0;
+for(const c of selected){try{const i=await inspectSite(`https://${c.domain}`);if(i.platform!=='shopify'||Number(i.platformConfidence||0)<50)continue;verifiedShopify++;const score=Math.min(100,Math.round(Math.min(Number(i.platformConfidence||0)*.45,45)+(i.reviewSignal?20:0)+(i.feedbackSignal?15:0)+(i.commerceSignal?10:0)+5));const status=score>=70?'priority':'qualified';if(status==='priority')priority++;const up=await sb('prospects?on_conflict=domain',{method:'POST',headers:{Prefer:'return=representation,resolution=merge-duplicates'},body:JSON.stringify({domain:c.domain,store_name:[...c.titles][0]||c.domain,platform:i.platform,platform_confidence:i.platformConfidence,review_signal:Boolean(i.reviewSignal),review_platform:i.reviewPlatform||null,feedback_signal:Boolean(i.feedbackSignal),commerce_signal:Boolean(i.commerceSignal),discovery_source:'brave_search',source_url:[...c.urls][0]||`https://${c.domain}`,qualification_score:score,status,metadata:{evidence:{discoveryQueryHits:c.queryHits,discoveryUrls:[...c.urls].slice(0,5),discoveryVersion:'v2'}},updated_at:new Date().toISOString()})});const p=Array.isArray(up)?up[0]:null;if(p?.id)await sb('prospect_sources',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({prospect_id:p.id,source_type:'discovery',source_url:[...c.urls][0]||`https://${c.domain}`,source_title:[...c.titles][0]||c.domain,metadata:{discoveryVersion:'v2',queryHits:c.queryHits}})})}catch(e){console.warn(`Candidate failed ${c.domain}: ${e.message}`)}}
+console.log(JSON.stringify({discovered:selected.length,verifiedShopify,priority,discoveryVersion:'v2'},null,2));
