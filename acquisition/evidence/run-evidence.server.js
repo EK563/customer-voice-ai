@@ -691,7 +691,9 @@ async function main() {
     : '';
 
   const prospects = await sb(
-    `prospects?select=*&status=in.(qualified,priority)&order=qualification_score.desc&limit=${candidateLimit}${domainFilter}`
+    targetDomain
+      ? `prospects?select=*&domain=eq.${encodeURIComponent(targetDomain)}&limit=1`
+      : `prospects?select=*&status=in.(qualified,priority)&order=qualification_score.desc&limit=${candidateLimit}`
   );
 
   let researched = 0;
@@ -1238,8 +1240,8 @@ async function main() {
       evidenceResearch: {
         researchedAt:
           new Date().toISOString(),
-        evidenceVersion: 'v5.5',
-        source: 'evidence_providers_v5.5',
+        evidenceVersion: 'v5.6',
+        source: 'evidence_providers_v5.6',
         currentWindowDays:
           CURRENT_DAYS,
         historicalWindowDays:
@@ -1290,7 +1292,7 @@ async function main() {
         recurrenceSignals,
         queriesRun,
         candidates,
-        evidenceVersion: 'v5.5',
+        evidenceVersion: 'v5.6',
       },
       null,
       2
