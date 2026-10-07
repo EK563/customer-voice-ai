@@ -82,7 +82,7 @@ export async function searchTavily(
 
   const payload = {
     api_key: apiKey,
-    query: cleanQuery(query),
+    query: query,
     search_depth: 'basic',
     topic: 'general',
     max_results: maxResults,
