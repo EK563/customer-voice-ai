@@ -4,6 +4,11 @@ import {
   TRUSTPILOT_PAIN_QUERIES,
 } from './queries.js';
 
+import {
+  isTrustpilotResult,
+  parseTrustpilotEvidence,
+} from './providers/trustpilot.js';
+
 const limit = Number(
   (
     process.argv.find((a) => a.startsWith('--limit=')) ||
@@ -691,9 +696,20 @@ async function main() {
         for (const result of results) {
           if (!result?.url) continue;
 
-          if (seen.has(result.url)) continue;
+          const resultFingerprint = [
+            result.url,
+            query,
+            result.title || '',
+            result.description || '',
+          ]
+            .join('|')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
 
-          seen.add(result.url);
+          if (seen.has(resultFingerprint)) continue;
+
+          seen.add(resultFingerprint);
 
           const host = hostOf(result.url);
           const text =
@@ -702,6 +718,17 @@ async function main() {
             }`
               .replace(/\s+/g, ' ')
               .trim();
+
+          const trustpilotEvidence =
+            isTrustpilotResult(result.url)
+              ? parseTrustpilotEvidence({
+                  url: result.url,
+                  title: result.title || '',
+                  description: result.description || '',
+                  pageAge: result.page_age || null,
+                  query,
+                })
+              : null;
 
           if (!host || !text) continue;
 
@@ -743,7 +770,12 @@ async function main() {
           }
 
           const negative =
-            negativeMatches(text);
+            trustpilotEvidence?.categories?.length
+              ? [
+                  ...negativeMatches(text),
+                  ...trustpilotEvidence.categories,
+                ]
+              : negativeMatches(text);
 
           if (!negative.length) {
             continue;
@@ -802,6 +834,12 @@ async function main() {
             recency,
             category,
             researchClass,
+            provider:
+              trustpilotEvidence?.provider ||
+              null,
+            providerCategories:
+              trustpilotEvidence?.categories ||
+              [],
           });
 
           candidates++;
@@ -1006,6 +1044,12 @@ async function main() {
                 'brave_search_v5',
               sourceHost:
                 item.host,
+              provider:
+                item.host === 'trustpilot.com'
+                  ? 'trustpilot'
+                  : 'brave',
+              providerCategories:
+                item.providerCategories || [],
               thirdParty: true,
               identityReason:
                 item.identity.reason,
@@ -1068,8 +1112,8 @@ async function main() {
       evidenceResearch: {
         researchedAt:
           new Date().toISOString(),
-        evidenceVersion: 'v5.3',
-        source: 'brave_search_v5.3',
+        evidenceVersion: 'v5.4',
+        source: 'evidence_providers_v5.4',
         currentWindowDays:
           CURRENT_DAYS,
         historicalWindowDays:
@@ -1120,7 +1164,7 @@ async function main() {
         recurrenceSignals,
         queriesRun,
         candidates,
-        evidenceVersion: 'v5.3',
+        evidenceVersion: 'v5.4',
       },
       null,
       2
