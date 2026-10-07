@@ -1,0 +1,1 @@
+export const PAIN_QUERIES = ['customer reviews','customer complaints','customer service','shipping review','delivery review','return review','quality review','sizing review','fit review','disappointed review','wish review','problem review'];
