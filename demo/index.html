@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Customer Voice AI · Demo preview</title>
+  <style>
+    :root {
+      --bg: #f6f6f7;
+      --surface: #ffffff;
+      --border: #e1e3e5;
+      --border-strong: #8c9196;
+      --text: #202223;
+      --text-subdued: #6d7175;
+      --primary: #008060;
+      --primary-hover: #006e52;
+      --critical: #d72c0d;
+      --warning-bg: #fff5d6;
+      --warning-border: #e3b505;
+      --info-bg: #eaf4ff;
+      --info-border: #b4d5ff;
+      --removed-bg: #ffd6d6;
+      --removed-fg: #8a1c1c;
+      --added-bg: #d9f7df;
+      --added-fg: #146c2e;
+      --radius: 8px;
+      --shadow: 0 1px 0 rgba(0,0,0,.05);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--text);
+      background: var(--bg);
+    }
+    .app-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand {
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+    .demo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #5c4e00;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 999px;
+      padding: 4px 12px;
+      white-space: nowrap;
+    }
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 24px 20px 64px;
+    }
+    .banner {
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 15px;
+      color: #003a5a;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      margin-bottom: 18px;
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .card .lede {
+      margin: 0 0 16px;
+      color: var(--text-subdued);
+      font-size: 15px;
+    }
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 24px;
+      font-weight: 650;
+    }
+    label.field-label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 15px;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea:focus, button:focus-visible, select:focus {
+      outline: 2px solid #005bd3;
+      outline-offset: 1px;
+    }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    button {
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      padding: 10px 16px;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #fff;
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #f6f6f7; }
+    .btn-critical {
+      background: var(--critical);
+      color: #fff;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 640px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+    .metric {
+      background: #f6f6f7;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      text-align: center;
+    }
+    .metric .val {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .metric .lbl {
+      font-size: 13px;
+      color: var(--text-subdued);
+      margin-top: 2px;
+    }
+    .theme {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      background: #fafbfb;
+    }
+    .theme-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .theme-head:hover { background: #f1f2f3; }
+    .theme-meta {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-subdued);
+      white-space: nowrap;
+    }
+    .theme-body {
+      display: none;
+      padding: 0 16px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .theme.open .theme-body { display: block; }
+    .evidence {
+      margin: 12px 0 0;
+      padding: 10px 12px;
+      background: #fff;
+      border-left: 3px solid #008060;
+      border-radius: 0 4px 4px 0;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .evidence .sent {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e4e5e7;
+      color: #4a4d50;
+    }
+    .evidence .sent.neg { background: #fce4e0; color: #8a1c1c; }
+    .evidence .sent.pos { background: #d9f7df; color: #146c2e; }
+    .issue-list { display: flex; flex-direction: column; gap: 10px; }
+    .issue {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      background: #fafbfb;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      font-family: inherit;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .issue:hover { border-color: #008060; background: #f1f8f5; }
+    .issue.selected {
+      border-color: #008060;
+      box-shadow: 0 0 0 1px #008060;
+      background: #f1f8f5;
+    }
+    .issue .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .issue h3 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .badge.high { background: #fce4e0; color: #8a1c1c; }
+    .badge.medium { background: #fff5d6; color: #5c4e00; }
+    .badge.monitor { background: #e4e5e7; color: #4a4d50; }
+    .rec-box {
+      background: #f6f6f7;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 12px 0 18px;
+    }
+    .rec-box p { margin: 0 0 8px; }
+    .rec-box p:last-child { margin-bottom: 0; }
+    .diff-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0 12px;
+      font-size: 14px;
+      color: var(--text-subdued);
+    }
+    .tag-removed, .tag-added {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .tag-removed {
+      background: var(--removed-bg);
+      color: var(--removed-fg);
+      text-decoration: line-through;
+    }
+    .tag-added {
+      background: var(--added-bg);
+      color: var(--added-fg);
+    }
+    .diff-panel {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      background: #fff;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      font-size: 15px;
+      margin-bottom: 14px;
+    }
+    .diff-removed {
+      background: var(--removed-bg);
+      color: var(--removed-fg);
+      text-decoration: line-through;
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+    .diff-added {
+      background: var(--added-bg);
+      color: var(--added-fg);
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 700px) {
+      .cols { grid-template-columns: 1fr; }
+    }
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fafbfb;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .mini h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-subdued);
+    }
+    .confirm-panel {
+      margin-top: 14px;
+      border: 1px solid var(--warning-border);
+      background: var(--warning-bg);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .confirm-panel h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .confirm-panel p { margin: 0 0 12px; font-size: 15px; }
+    .obs-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .chip {
+      border: 1px solid var(--border-strong);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text);
+    }
+    .chip.active {
+      border-color: #008060;
+      background: #f1f8f5;
+      color: #006e52;
+      box-shadow: 0 0 0 1px #008060;
+    }
+    .status-note {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      border-radius: 6px;
+      font-size: 15px;
+    }
+    .footer-ask {
+      border-top: 2px solid var(--border);
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    .footer-ask .prompt {
+      font-size: 20px;
+      font-weight: 650;
+      margin: 8px 0 12px;
+    }
+    .terms {
+      background: #f6f6f7;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      font-size: 15px;
+    }
+    .terms ul { margin: 8px 0 0; padding-left: 20px; }
+    .terms li { margin-bottom: 4px; }
+    .hidden { display: none !important; }
+    .step-hint {
+      font-size: 13px;
+      color: var(--text-subdued);
+      margin-top: 8px;
+    }
+    .chevron { color: var(--text-subdued); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header class="app-bar">
+    <div class="brand">Customer Voice AI</div>
+    <div class="demo-badge" title="Illustrative data only">Demo preview · illustrative data</div>
+  </header>
+
+  <main class="wrap">
+    <div class="banner">
+      This is a logged-out shareable preview for sales demos. Nothing is written to Shopify.
+      Walk the path: paste feedback → themes &amp; evidence → recommendation → Apply gate → Observation window.
+    </div>
+
+    <!-- Step 1: Paste feedback -->
+    <section class="card" id="step-paste">
+      <h2>Analyze customer feedback</h2>
+      <p class="lede">Paste customer reviews, survey responses, or support messages — one response per line. Prefilled with illustrative apparel-style comments.</p>
+      <label class="field-label" for="feedback">Customer feedback</label>
+      <textarea id="feedback" spellcheck="false"></textarea>
+      <div class="btn-row">
+        <button type="button" class="btn-primary" id="btn-analyze">Analyze Feedback</button>
+        <button type="button" class="btn-secondary" id="btn-reset-sample">Reset sample</button>
+      </div>
+      <p class="step-hint">Client-side analysis only · no Shopify login required</p>
+    </section>
+
+    <!-- Step 2: Themes + evidence -->
+    <section class="card hidden" id="step-themes">
+      <h2 class="section-title">Customer Voice Summary</h2>
+      <div class="metrics" id="metrics"></div>
+      <h2 class="section-title" style="margin-top:20px">Themes with evidence</h2>
+      <p class="lede">Click a theme to expand evidence quotes from the pasted feedback.</p>
+      <div id="themes"></div>
+    </section>
+
+    <!-- Step 3: Priority + recommendation + before/after -->
+    <section class="card hidden" id="step-priority">
+      <h2 class="section-title">Select one priority issue</h2>
+      <p class="lede">Choose the issue to turn into an actionable product-description change.</p>
+      <div class="issue-list" id="issues"></div>
+
+      <div id="execution-block" class="hidden">
+        <h2 class="section-title" style="margin-top:22px">Execution Preview</h2>
+        <div class="rec-box" id="recommendation"></div>
+
+        <h2 class="section-title">Shopify Change Preview</h2>
+        <p class="lede" id="product-label">Product: Soft Cotton Relaxed Tee (illustrative)</p>
+        <div class="cols">
+          <div class="mini">
+            <h4>Before</h4>
+            <div id="before-html"></div>
+          </div>
+          <div class="mini">
+            <h4>Proposed after</h4>
+            <div id="after-html"></div>
+          </div>
+        </div>
+        <div class="diff-legend">
+          <span class="tag-removed">Removed</span>
+          <span class="tag-added">Added</span>
+          <span id="diff-stats"></span>
+        </div>
+        <div class="diff-panel" id="diff-panel"></div>
+
+        <!-- Step 4: Apply gate -->
+        <div class="btn-row">
+          <button type="button" class="btn-primary" id="btn-apply">Apply to Shopify</button>
+        </div>
+        <div class="confirm-panel hidden" id="confirm-panel" role="dialog" aria-labelledby="confirm-title">
+          <h3 id="confirm-title">Confirm Apply to Shopify?</h3>
+          <p>
+            <strong>Nothing is written in this demo preview.</strong>
+            The live Customer Voice AI app would apply the product description change to Shopify after merchant confirmation.
+            This shareable preview stops here so you can show the gate without a store connection.
+          </p>
+          <div class="btn-row">
+            <button type="button" class="btn-secondary" id="btn-cancel-apply">Cancel</button>
+            <button type="button" class="btn-critical" id="btn-confirm-demo">Confirm demo (no write)</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: Observation window -->
+    <section class="card hidden" id="step-observation">
+      <h2 class="section-title">Observation window</h2>
+      <p class="lede">
+        Set a follow-up window to check whether feedback patterns shift after a change.
+        This preview does not invent causal lift or attribute revenue results.
+      </p>
+      <label class="field-label">Follow-up window</label>
+      <div class="obs-options" id="obs-options">
+        <button type="button" class="chip" data-days="7">7 days</button>
+        <button type="button" class="chip active" data-days="14">14 days</button>
+        <button type="button" class="chip" data-days="30">30 days</button>
+      </div>
+      <div class="status-note" id="obs-status">
+        Observation window set to <strong>14 days</strong>.
+        After that window, re-analyze new feedback against the same theme.
+        No outcome is claimed in this demo preview.
+      </div>
+      <p class="step-hint" id="gate-outcome"></p>
+    </section>
+
+    <!-- Step 6: Pilot ask -->
+    <section class="card footer-ask" id="step-pilot">
+      <h2 class="section-title">Pilot conversation</h2>
+      <p class="prompt">What would you pay for a pilot?</p>
+      <div class="terms">
+        <strong>Suggested pilot terms</strong> (static prompt for the salesman — adjust per prospect):
+        <ul>
+          <li>Scope: one catalog segment or flagship SKU line for the observation window</li>
+          <li>Cadence: weekly theme review + one Apply-ready description change per cycle</li>
+          <li>Success check: reduction in theme-negative mentions in the chosen window — not guaranteed lift</li>
+          <li>Ask: monthly pilot fee the merchant would accept to run this loop with Customer Voice AI</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script>
+(function () {
+  const SAMPLE = [
+    "Love the Soft Cotton Relaxed Tee fabric, but the fit runs small — I usually wear M and needed L.",
+    "Size chart would help. Ordered my normal size and the shoulders were too tight.",
+    "Beautiful color on the linen shirt. True to size for me and very comfortable.",
+    "Disappointed with sizing. The description said relaxed fit but it feels slim through the chest.",
+    "Shipping was fine. The dress length runs short compared to the photos — wish fit notes were clearer.",
+    "Great quality denim. Fit is perfect if you size up one for a looser look.",
+    "Returned the jacket — sleeves ran long and the fit guide only listed bust, not length.",
+    "Oh Hello-style cut I expected more ease. Product page needs better sizing & fit guidance before purchase.",
+  ].join("\n");
+
+  const TOPICS = [
+    { name: "Shipping & Delivery", keywords: ["shipping", "delivery", "late", "slow", "arrived"] },
+    { name: "Sizing & Fit", keywords: ["size", "sizing", "fit", "small", "large", "uncomfortable", "tight", "length", "sleeves"] },
+    { name: "Returns & Refunds", keywords: ["return", "refund", "exchange", "returned"] },
+    { name: "Product Quality", keywords: ["quality", "broken", "damaged", "defective", "durable", "excellent", "fabric"] },
+    { name: "Price & Value", keywords: ["price", "expensive", "cheap", "value", "worth"] },
+    { name: "Customer Service", keywords: ["service", "support", "help", "staff", "response"] },
+  ];
+
+  const POSITIVE_WORDS = [
+    "great", "good", "love", "excellent", "happy", "fast", "easy",
+    "comfortable", "perfect", "amazing", "helpful", "beautiful", "true to size",
+  ];
+  const NEGATIVE_WORDS = [
+    "bad", "poor", "hate", "slow", "late", "broken", "damaged", "expensive",
+    "refund", "return", "returned", "wrong", "problem", "issue", "disappointed",
+    "uncomfortable", "tight", "runs small", "needed",
+  ];
+
+  const HIGH_PRIORITY = new Set([
+    "Shipping & Delivery",
+    "Product Quality",
+    "Returns & Refunds",
+  ]);
+
+  const PRODUCT_BEFORE =
+    "Soft Cotton Relaxed Tee. Soft midweight cotton jersey with a clean crew neck. Available in XS–XXL.";
+
+  const PRODUCT_AFTER =
+    "Soft Cotton Relaxed Tee. Soft midweight cotton jersey with a clean crew neck. Fit note: runs slightly small through the chest and shoulders — size up one for a true relaxed fit. See size chart for bust, length, and sleeve measurements. Available in XS–XXL.";
+
+  const RECS = {
+    "Sizing & Fit": {
+      priority: "Medium",
+      impact: "Customers may hesitate to purchase or keep the product",
+      action: "Improve size charts, fit descriptions, and pre-purchase guidance.",
+      target: "Soft Cotton Relaxed Tee",
+      proposedLabel: "Update product description",
+    },
+    "Shipping & Delivery": {
+      priority: "High",
+      impact: "Negative customer sentiment",
+      action: "Review delivery estimates and improve order-status communication.",
+      target: "Soft Cotton Relaxed Tee",
+      proposedLabel: "Update product description",
+    },
+    "Returns & Refunds": {
+      priority: "High",
+      impact: "Potential friction after purchase",
+      action: "Make the return and refund process easier to understand and access.",
+      target: "Soft Cotton Relaxed Tee",
+      proposedLabel: "Update product description",
+    },
+    "Product Quality": {
+      priority: "High",
+      impact: "Potential product dissatisfaction",
+      action: "Investigate recurring quality complaints and identify affected products.",
+      target: "Soft Cotton Relaxed Tee",
+      proposedLabel: "Update product description",
+    },
+    "Price & Value": {
+      priority: "Medium",
+      impact: "Potential purchase hesitation",
+      action: "Improve pricing transparency and communicate product value more clearly.",
+      target: "Soft Cotton Relaxed Tee",
+      proposedLabel: "Update product description",
+    },
+    "Customer Service": {
+      priority: "Medium",
+      impact: "Potential support dissatisfaction",
+      action: "Review customer-support response times and recurring support questions.",
+      target: "Soft Cotton Relaxed Tee",
+      proposedLabel: "Update product description",
+    },
+  };
+
+  const el = (id) => document.getElementById(id);
+  const feedbackEl = el("feedback");
+  let analysis = null;
+  let selectedIssue = null;
+  let obsDays = 14;
+
+  function splitFeedback(text) {
+    return String(text || "")
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  function detectSentiment(text) {
+    const n = text.toLowerCase();
+    const positive = POSITIVE_WORDS.filter((w) => n.includes(w)).length;
+    const negative = NEGATIVE_WORDS.filter((w) => n.includes(w)).length;
+    if (positive > negative && positive > 0) return "Positive";
+    if (negative > positive && negative > 0) return "Negative";
+    return "Neutral";
+  }
+
+  function detectTopics(text) {
+    const n = text.toLowerCase();
+    return TOPICS.filter((t) => t.keywords.some((k) => n.includes(k))).map((t) => t.name);
+  }
+
+  function getPriority(topic) {
+    if (HIGH_PRIORITY.has(topic)) return "High";
+    return "Medium";
+  }
+
+  function analyzeFeedback(raw) {
+    const entries = splitFeedback(raw);
+    const classified = entries.map((text, i) => {
+      const topics = detectTopics(text);
+      return {
+        id: i + 1,
+        text,
+        sentiment: detectSentiment(text),
+        topics,
+        primaryTopic: topics[0] || "General Feedback",
+      };
+    });
+
+    const total = classified.length;
+    const sentimentCounts = {
+      Positive: classified.filter((x) => x.sentiment === "Positive").length,
+      Neutral: classified.filter((x) => x.sentiment === "Neutral").length,
+      Negative: classified.filter((x) => x.sentiment === "Negative").length,
+    };
+
+    const topicCounts = TOPICS.map((t) => {
+      const matching = classified.filter((item) => item.topics.includes(t.name));
+      return {
+        name: t.name,
+        count: matching.length,
+        positiveCount: matching.filter((m) => m.sentiment === "Positive").length,
+        negativeCount: matching.filter((m) => m.sentiment === "Negative").length,
+        percentage: total ? Math.round((matching.length / total) * 100) : 0,
+        evidence: matching,
+      };
+    })
+      .filter((t) => t.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const priorityIssues = topicCounts
+      .filter((t) => t.negativeCount > 0)
+      .map((t) => ({
+        topic: t.name,
+        priority: getPriority(t.name),
+        negativeCount: t.negativeCount,
+        percentage: total ? Math.round((t.negativeCount / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.negativeCount - a.negativeCount);
+
+    return { feedbackCount: total, sentimentCounts, topicCounts, priorityIssues, classified };
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function pct(n, total) {
+    return total ? Math.round((n / total) * 100) : 0;
+  }
+
+  function renderMetrics(a) {
+    const t = a.feedbackCount;
+    el("metrics").innerHTML = [
+      ["Feedback analyzed", a.feedbackCount],
+      ["Positive", pct(a.sentimentCounts.Positive, t) + "%"],
+      ["Neutral", pct(a.sentimentCounts.Neutral, t) + "%"],
+      ["Negative", pct(a.sentimentCounts.Negative, t) + "%"],
+    ]
+      .map(
+        ([lbl, val]) =>
+          `<div class="metric"><div class="val">${esc(String(val))}</div><div class="lbl">${esc(lbl)}</div></div>`,
+      )
+      .join("");
+  }
+
+  function renderThemes(a) {
+    const root = el("themes");
+    if (!a.topicCounts.length) {
+      root.innerHTML = "<p>No recurring topic was detected in this dataset.</p>";
+      return;
+    }
+    root.innerHTML = a.topicCounts
+      .map((topic, idx) => {
+        const open = topic.name === "Sizing & Fit" ? " open" : idx === 0 ? " open" : "";
+        const evidenceHtml = topic.evidence
+          .map((e) => {
+            const cls =
+              e.sentiment === "Negative" ? "neg" : e.sentiment === "Positive" ? "pos" : "";
+            return `<div class="evidence">“${esc(e.text)}”<div class="sent ${cls}">${esc(e.sentiment)}</div></div>`;
+          })
+          .join("");
+        return `
+          <div class="theme${open}" data-theme="${esc(topic.name)}">
+            <button type="button" class="theme-head" aria-expanded="${open ? "true" : "false"}">
+              <span>${esc(topic.name)}</span>
+              <span class="theme-meta">${topic.count} mention${topic.count === 1 ? "" : "s"} · ${topic.percentage}% · ${topic.negativeCount} negative <span class="chevron">${open ? "▾" : "▸"}</span></span>
+            </button>
+            <div class="theme-body">
+              <p style="margin:10px 0 0;font-size:14px;color:var(--text-subdued)">${topic.positiveCount} positive · ${topic.negativeCount} negative · evidence from pasted text</p>
+              ${evidenceHtml}
+            </div>
+          </div>`;
+      })
+      .join("");
+
+    root.querySelectorAll(".theme-head").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const theme = btn.closest(".theme");
+        const willOpen = !theme.classList.contains("open");
+        theme.classList.toggle("open", willOpen);
+        btn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+        const chev = btn.querySelector(".chevron");
+        if (chev) chev.textContent = willOpen ? "▾" : "▸";
+      });
+    });
+  }
+
+  function renderIssues(a) {
+    const root = el("issues");
+    if (!a.priorityIssues.length) {
+      root.innerHTML =
+        '<p>No negative recurring issue was detected. Try the sample apparel feedback.</p>';
+      el("execution-block").classList.add("hidden");
+      return;
+    }
+    root.innerHTML = a.priorityIssues
+      .map((issue) => {
+        const badgeClass = issue.priority === "High" ? "high" : "medium";
+        return `
+          <button type="button" class="issue" data-topic="${esc(issue.topic)}">
+            <div class="row">
+              <h3>${esc(issue.topic)}</h3>
+              <span class="badge ${badgeClass}">${esc(issue.priority)}</span>
+            </div>
+            <div style="color:var(--text-subdued);font-size:14px">
+              ${issue.negativeCount} negative response${issue.negativeCount === 1 ? "" : "s"} · ${issue.percentage}% of all feedback
+            </div>
+          </button>`;
+      })
+      .join("");
+
+    root.querySelectorAll(".issue").forEach((btn) => {
+      btn.addEventListener("click", () => selectIssue(btn.dataset.topic));
+    });
+
+    // Prefer Sizing & Fit for the demo script path
+    const prefer =
+      a.priorityIssues.find((i) => i.topic === "Sizing & Fit") || a.priorityIssues[0];
+    if (prefer) selectIssue(prefer.topic);
+  }
+
+  function simpleDiff(before, after) {
+    // Word-level LCS for short product descriptions
+    const bWords = before.split(/(\s+)/);
+    const aWords = after.split(/(\s+)/);
+    const n = bWords.length;
+    const m = aWords.length;
+    if (n * m > 40000) {
+      return {
+        html:
+          `<span class="diff-removed">${esc(before)}</span> ` +
+          `<span class="diff-added">${esc(after)}</span>`,
+        added: after.split(/\s+/).filter(Boolean).length,
+        removed: before.split(/\s+/).filter(Boolean).length,
+      };
+    }
+    const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        dp[i][j] =
+          bWords[i] === aWords[j]
+            ? dp[i + 1][j + 1] + 1
+            : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+    let i = 0;
+    let j = 0;
+    let html = "";
+    let added = 0;
+    let removed = 0;
+    const isWord = (w) => /\S/.test(w);
+    while (i < n && j < m) {
+      if (bWords[i] === aWords[j]) {
+        html += esc(bWords[i]);
+        i++;
+        j++;
+      } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+        if (isWord(bWords[i])) removed++;
+        html += `<span class="diff-removed">${esc(bWords[i])}</span>`;
+        i++;
+      } else {
+        if (isWord(aWords[j])) added++;
+        html += `<span class="diff-added">${esc(aWords[j])}</span>`;
+        j++;
+      }
+    }
+    while (i < n) {
+      if (isWord(bWords[i])) removed++;
+      html += `<span class="diff-removed">${esc(bWords[i])}</span>`;
+      i++;
+    }
+    while (j < m) {
+      if (isWord(aWords[j])) added++;
+      html += `<span class="diff-added">${esc(aWords[j])}</span>`;
+      j++;
+    }
+    return { html, added, removed };
+  }
+
+  function selectIssue(topic) {
+    selectedIssue = topic;
+    el("issues").querySelectorAll(".issue").forEach((btn) => {
+      btn.classList.toggle("selected", btn.dataset.topic === topic);
+    });
+
+    const rec = RECS[topic] || RECS["Sizing & Fit"];
+    el("recommendation").innerHTML = `
+      <p><strong>${esc(rec.proposedLabel)}</strong></p>
+      <p><strong>Target:</strong> ${esc(rec.target)}</p>
+      <p><strong>Status:</strong> Ready for review</p>
+      <p><strong>Impact:</strong> ${esc(rec.impact)}</p>
+      <p><strong>Recommended action:</strong> ${esc(rec.action)}</p>
+      <p><strong>Proposed change:</strong> Add clear sizing &amp; fit guidance to the product description so shoppers can choose the right size before purchase.</p>
+    `;
+
+    el("product-label").textContent = `Product: ${rec.target} (illustrative)`;
+    el("before-html").textContent = PRODUCT_BEFORE;
+    el("after-html").textContent = PRODUCT_AFTER;
+
+    const diff = simpleDiff(PRODUCT_BEFORE, PRODUCT_AFTER);
+    el("diff-panel").innerHTML = diff.html || "<span>(no text changes)</span>";
+    el("diff-stats").textContent = `· ${diff.added} added · ${diff.removed} removed`;
+
+    el("execution-block").classList.remove("hidden");
+    el("confirm-panel").classList.add("hidden");
+  }
+
+  function showObservation(how) {
+    el("step-observation").classList.remove("hidden");
+    const msg =
+      how === "cancel"
+        ? "Apply cancelled — nothing was written. Observation window is ready for the salesman close."
+        : "Demo confirm complete — nothing was written to Shopify. Observation window is ready for the salesman close.";
+    el("gate-outcome").textContent = msg;
+    el("step-observation").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function setObsDays(days) {
+    obsDays = days;
+    el("obs-options").querySelectorAll(".chip").forEach((c) => {
+      c.classList.toggle("active", Number(c.dataset.days) === days);
+    });
+    el("obs-status").innerHTML =
+      `Observation window set to <strong>${days} days</strong>. ` +
+      `After that window, re-analyze new feedback against the same theme. ` +
+      `No outcome is claimed in this demo preview.`;
+  }
+
+  function runAnalyze() {
+    analysis = analyzeFeedback(feedbackEl.value);
+    selectedIssue = null;
+    renderMetrics(analysis);
+    renderThemes(analysis);
+    renderIssues(analysis);
+    el("step-themes").classList.remove("hidden");
+    el("step-priority").classList.remove("hidden");
+    el("step-observation").classList.add("hidden");
+    el("confirm-panel").classList.add("hidden");
+    el("step-themes").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function loadSample() {
+    feedbackEl.value = SAMPLE;
+  }
+
+  // Wire events
+  el("btn-analyze").addEventListener("click", runAnalyze);
+  el("btn-reset-sample").addEventListener("click", () => {
+    loadSample();
+    el("step-themes").classList.add("hidden");
+    el("step-priority").classList.add("hidden");
+    el("step-observation").classList.add("hidden");
+  });
+  el("btn-apply").addEventListener("click", () => {
+    el("confirm-panel").classList.remove("hidden");
+    el("confirm-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  el("btn-cancel-apply").addEventListener("click", () => {
+    el("confirm-panel").classList.add("hidden");
+    showObservation("cancel");
+  });
+  el("btn-confirm-demo").addEventListener("click", () => {
+    el("confirm-panel").classList.add("hidden");
+    showObservation("confirm");
+  });
+  el("obs-options").querySelectorAll(".chip").forEach((chip) => {
+    chip.addEventListener("click", () => setObsDays(Number(chip.dataset.days)));
+  });
+
+  loadSample();
+})();
+  </script>
+</body>
+</html>
